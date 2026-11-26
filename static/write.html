@@ -1,0 +1,546 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cortex Blog Studio</title>
+<style>
+  :root {
+    --accent: #ffad50; --cyan: #80deea; --ink: #0b0d10; --panel: #13161b; --paper: #f3efe8;
+    --muted: #9aa3ad; --line: rgba(255,255,255,0.1); --danger: #ff7a7a;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body { background: var(--ink); color: var(--paper); font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  button, input, textarea, select { font: inherit; color: inherit; }
+  button { cursor: pointer; border: 1px solid var(--line); background: transparent; border-radius: 999px; padding: 8px 14px; transition: .2s; }
+  button:hover { border-color: var(--cyan); color: var(--cyan); }
+  button.primary { background: var(--accent); color: var(--ink); border-color: var(--accent); font-weight: 600; }
+  button.primary:hover { background: var(--cyan); border-color: var(--cyan); color: var(--ink); }
+  button.danger:hover { border-color: var(--danger); color: var(--danger); }
+  button:disabled { opacity: .5; cursor: not-allowed; }
+  input[type=text], input[type=password], textarea {
+    width: 100%; background: rgba(255,255,255,0.03); border: 1px solid var(--line); border-radius: 12px; padding: 10px 14px; outline: none; transition: border-color .2s;
+  }
+  input:focus, textarea:focus { border-color: var(--accent); }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .hidden { display: none !important; }
+
+  /* login */
+  #login { min-height: 100%; display: grid; place-items: center; padding: 24px; }
+  .login-card { width: min(420px, 100%); background: var(--panel); border: 1px solid var(--line); border-radius: 24px; padding: 32px; }
+  .login-card h1 { font-size: 24px; margin: 0 0 6px; }
+  .login-card p { color: var(--muted); margin: 0 0 20px; }
+  .error { color: var(--danger); min-height: 1.4em; margin-top: 10px; font-size: 14px; }
+
+  /* studio */
+  #app { height: 100%; display: grid; grid-template-rows: auto 1fr; }
+  header.bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 20px; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+  .brand { font-weight: 700; letter-spacing: .04em; text-transform: uppercase; }
+  .brand span { color: var(--accent); }
+  .bar-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  #save-state { color: var(--muted); font-size: 13px; margin-right: 6px; }
+  .badge { font-size: 12px; padding: 3px 10px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); }
+  .badge.live { color: var(--ink); background: var(--cyan); border-color: var(--cyan); }
+  .workspace { display: grid; grid-template-columns: 280px 1fr; min-height: 0; }
+  aside { border-right: 1px solid var(--line); padding: 16px; overflow-y: auto; }
+  aside input { margin-bottom: 12px; }
+  .post-item { display: block; width: 100%; text-align: left; border: 1px solid transparent; border-radius: 14px; padding: 10px 12px; margin-bottom: 6px; background: transparent; }
+  .post-item.active { border-color: var(--accent); background: rgba(255,173,80,0.08); }
+  .post-item small { display: block; color: var(--muted); font-size: 12px; margin-top: 2px; }
+  .post-item .t { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .section-label { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .12em; margin: 16px 4px 8px; }
+
+  main { overflow-y: auto; padding: 24px clamp(16px, 3vw, 40px) 60px; }
+  .title-input { font-size: clamp(26px, 3.4vw, 40px); font-weight: 700; background: transparent; border: none; border-bottom: 1px dashed var(--line); border-radius: 0; padding: 6px 0 12px; }
+  .title-input:focus { border-bottom-color: var(--accent); }
+  .field { margin-top: 18px; }
+  .label-row { display: flex; justify-content: space-between; color: var(--muted); font-size: 13px; margin-bottom: 6px; }
+  textarea.desc { min-height: 72px; resize: vertical; }
+
+  .thumb-row { display: grid; grid-template-columns: 200px 1fr; gap: 16px; align-items: stretch; }
+  .dropzone { border: 1.5px dashed var(--line); border-radius: 18px; min-height: 130px; display: grid; place-items: center; text-align: center; color: var(--muted); padding: 10px; cursor: pointer; overflow: hidden; position: relative; transition: .2s; }
+  .dropzone:hover, .dropzone.over { border-color: var(--cyan); color: var(--cyan); }
+  .dropzone img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+  .dropzone .hint { position: relative; background: rgba(11,13,16,.7); padding: 6px 10px; border-radius: 10px; }
+  .thumb-help { color: var(--muted); font-size: 14px; align-self: center; }
+  .thumb-help button { margin-top: 10px; }
+
+  .toolbar { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+  .toolbar button { padding: 5px 10px; font-size: 13px; border-radius: 10px; }
+  .toolbar .sep { width: 1px; background: var(--line); margin: 2px 4px; }
+  .split { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .split.single { grid-template-columns: 1fr; }
+  #body { min-height: 420px; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 14px; line-height: 1.6; resize: vertical; }
+  .preview { border: 1px solid var(--line); border-radius: 14px; padding: 18px 22px; background: rgba(255,255,255,0.02); min-height: 420px; overflow-wrap: anywhere; }
+  .preview h1, .preview h2, .preview h3 { font-weight: 700; line-height: 1.25; }
+  .preview h2 { font-size: 1.5em; } .preview h3 { font-size: 1.25em; }
+  .preview a { color: var(--accent); }
+  .preview img { max-width: 100%; border-radius: 12px; }
+  .preview pre { background: rgba(255,255,255,0.05); padding: 12px; border-radius: 10px; overflow-x: auto; }
+  .preview code { background: rgba(255,255,255,0.06); padding: 1px 5px; border-radius: 5px; }
+  .preview blockquote { border-left: 3px solid var(--accent); margin-left: 0; padding-left: 14px; color: var(--muted); }
+  .footer-meta { margin-top: 10px; color: var(--muted); font-size: 13px; display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px; }
+  .notice { margin-top: 14px; padding: 10px 14px; border-radius: 12px; font-size: 14px; border: 1px solid var(--line); }
+  .notice.warn { border-color: var(--accent); color: var(--accent); }
+  .notice.bad { border-color: var(--danger); color: var(--danger); }
+  .toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: var(--panel); border: 1px solid var(--line); padding: 10px 18px; border-radius: 999px; opacity: 0; transition: opacity .3s; pointer-events: none; }
+  .toast.show { opacity: 1; }
+
+  @media (max-width: 860px) {
+    .workspace { grid-template-columns: 1fr; }
+    aside { border-right: none; border-bottom: 1px solid var(--line); max-height: 220px; }
+    .split, .thumb-row { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<section id="login" class="hidden">
+  <form class="login-card" id="login-form">
+    <h1>Cortex Blog Studio</h1>
+    <p>Enter your access key to write.</p>
+    <input type="password" id="key" placeholder="Access key" autocomplete="current-password" required>
+    <div style="margin-top:16px"><button class="primary" type="submit">Enter studio</button></div>
+    <div class="error" id="login-error"></div>
+  </form>
+</section>
+
+<section id="app" class="hidden">
+  <header class="bar">
+    <div class="brand">Cortex <span>Studio</span></div>
+    <div class="bar-actions">
+      <span id="save-state">Not saved yet</span>
+      <span class="badge" id="status-badge">Draft</span>
+      <button id="new-post" type="button">New post</button>
+      <button id="save" type="button">Save draft</button>
+      <button id="publish" class="primary" type="button">Publish</button>
+      <button id="unpublish" type="button" class="hidden">Unpublish</button>
+      <button id="delete" type="button" class="danger hidden">Delete</button>
+      <button id="logout" type="button">Log out</button>
+    </div>
+  </header>
+
+  <div class="workspace">
+    <aside>
+      <input type="text" id="search" placeholder="Search posts">
+      <div class="section-label">All posts</div>
+      <div id="post-list"></div>
+    </aside>
+
+    <main>
+      <input type="text" id="title" class="title-input" placeholder="Post title" maxlength="200" aria-label="Title">
+
+      <div class="field">
+        <div class="label-row"><label for="description">Description</label><span id="desc-count">0 / 300</span></div>
+        <textarea id="description" class="desc" maxlength="300" placeholder="A short summary shown on the blog list and in search results."></textarea>
+      </div>
+
+      <div class="field">
+        <div class="label-row"><span>Thumbnail</span><span>PNG, JPG, WebP or GIF, up to 5 MB</span></div>
+        <div class="thumb-row">
+          <div class="dropzone" id="dropzone" tabindex="0" role="button" aria-label="Choose or drop a thumbnail">
+            <span class="hint" id="thumb-hint">Drop an image or click</span>
+            <img id="thumb-preview" class="hidden" alt="">
+          </div>
+          <div class="thumb-help">
+            <div id="thumb-text">No thumbnail yet. Use a wide image, around 1600 × 1000 pixels, for the best result.</div>
+            <button type="button" id="thumb-remove" class="hidden">Remove thumbnail</button>
+          </div>
+        </div>
+        <input type="file" id="file" accept="image/png,image/jpeg,image/webp,image/gif" class="hidden">
+      </div>
+
+      <div class="field">
+        <div class="label-row"><span>Body (Markdown)</span><span id="stats">0 words · 1 min read</span></div>
+        <div class="toolbar" id="toolbar">
+          <button type="button" data-cmd="h2">H2</button>
+          <button type="button" data-cmd="h3">H3</button>
+          <span class="sep"></span>
+          <button type="button" data-cmd="bold"><b>B</b></button>
+          <button type="button" data-cmd="italic"><i>I</i></button>
+          <button type="button" data-cmd="code">&lt;/&gt;</button>
+          <button type="button" data-cmd="quote">Quote</button>
+          <span class="sep"></span>
+          <button type="button" data-cmd="ul">List</button>
+          <button type="button" data-cmd="ol">Numbered</button>
+          <button type="button" data-cmd="link">Link</button>
+          <button type="button" data-cmd="image">Image</button>
+          <span class="sep"></span>
+          <button type="button" id="toggle-preview">Hide preview</button>
+        </div>
+        <div class="split" id="split">
+          <textarea id="body" placeholder="Write in Markdown. Paste or drop an image here to add it to the post."></textarea>
+          <div class="preview" id="preview" aria-live="polite"></div>
+        </div>
+        <div class="footer-meta">
+          <span>Ctrl/⌘ + S saves · Ctrl/⌘ + B bold · Ctrl/⌘ + I italic · Ctrl/⌘ + K link</span>
+          <span id="updated"></span>
+        </div>
+      </div>
+
+      <div id="notice" class="notice hidden"></div>
+    </main>
+  </div>
+</section>
+
+<div class="toast" id="toast"></div>
+
+<script>
+(() => {
+  const $ = (id) => document.getElementById(id);
+  const state = { id: null, status: "draft", dirty: false, saving: false, thumb: { url: "" }, posts: [] };
+  let autosaveTimer = null, previewTimer = null, toastTimer = null, saveStateTimer = null;
+
+  async function api(path, options = {}) {
+    const init = { method: options.method || "GET", headers: {}, credentials: "same-origin" };
+    if (options.body instanceof FormData) init.body = options.body;
+    else if (options.body !== undefined) { init.headers["Content-Type"] = "application/json"; init.body = JSON.stringify(options.body); }
+    const res = await fetch(path, init);
+    let data = null;
+    try { data = await res.json(); } catch (_) {}
+    if (!res.ok) {
+      const err = new Error((data && data.error) || `Request failed (${res.status})`);
+      err.status = res.status;
+      throw err;
+    }
+    return data;
+  }
+
+  function toast(msg) {
+    const t = $("toast");
+    t.textContent = msg; t.classList.add("show");
+    clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove("show"), 2600);
+  }
+
+  function notice(msg, kind = "") {
+    const n = $("notice");
+    if (!msg) { n.className = "notice hidden"; n.textContent = ""; return; }
+    n.className = "notice " + kind; n.textContent = msg;
+  }
+
+  function setSaveState(text) {
+    $("save-state").textContent = text;
+  }
+
+  function markDirty() {
+    state.dirty = true;
+    setSaveState("Unsaved changes");
+    clearTimeout(autosaveTimer);
+    if (state.id) autosaveTimer = setTimeout(() => save({ silent: true }), 2500);
+  }
+
+  function fields() {
+    return {
+      title: $("title").value,
+      description: $("description").value,
+      body: $("body").value,
+      thumbnail_url: state.thumb.url,
+    };
+  }
+
+  function loadFields(p) {
+    $("title").value = p.title || "";
+    $("description").value = p.description || "";
+    $("body").value = p.body || "";
+    state.thumb = { url: p.thumbnail_url || "" };
+    renderThumb();
+    updateCounts();
+    renderPreview();
+  }
+
+  function renderThumb() {
+    const img = $("thumb-preview"), hint = $("thumb-hint");
+    if (state.thumb.url) {
+      img.src = state.thumb.url; img.classList.remove("hidden"); hint.textContent = "Change image";
+      $("thumb-text").textContent = "Thumbnail saved.";
+      $("thumb-remove").classList.remove("hidden");
+    } else {
+      img.removeAttribute("src"); img.classList.add("hidden"); hint.textContent = "Drop an image or click";
+      $("thumb-text").textContent = "No thumbnail yet. Use a wide image, around 1600 × 1000 pixels, for the best result.";
+      $("thumb-remove").classList.add("hidden");
+    }
+  }
+
+  function updateCounts() {
+    const d = $("description").value;
+    $("desc-count").textContent = `${d.length} / 300`;
+    const words = $("body").value.trim().split(/\s+/).filter(Boolean).length;
+    $("stats").textContent = `${words} word${words === 1 ? "" : "s"} · ${Math.max(1, Math.ceil(words / 200))} min read`;
+  }
+
+  function renderPreview() {
+    clearTimeout(previewTimer);
+    previewTimer = setTimeout(async () => {
+      try {
+        const { html } = await api("/api/admin/preview", { method: "POST", body: { body: $("body").value } });
+        $("preview").innerHTML = html || '<p style="color:var(--muted)">Your preview appears here.</p>';
+      } catch (e) { /* ignore preview errors */ }
+    }, 250);
+  }
+
+  function renderStatus() {
+    const badge = $("status-badge");
+    badge.textContent = state.status === "published" ? "Published" : "Draft";
+    badge.classList.toggle("live", state.status === "published");
+    $("unpublish").classList.toggle("hidden", !(state.id && state.status === "published"));
+    $("delete").classList.toggle("hidden", !state.id);
+    $("publish").textContent = state.status === "published" ? "Update" : "Publish";
+  }
+
+  function renderList() {
+    const q = $("search").value.trim().toLowerCase();
+    const list = $("post-list");
+    list.innerHTML = "";
+    const shown = state.posts.filter((p) => !q || p.title.toLowerCase().includes(q));
+    if (!shown.length) { list.innerHTML = '<p style="color:var(--muted);font-size:14px">No posts yet. Start with a new post.</p>'; return; }
+    shown.forEach((p) => {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = "post-item" + (p.id === state.id ? " active" : "");
+      const when = new Date(p.updated_at).toLocaleDateString("en-GB", { day: "numeric", month: "short" });
+      b.innerHTML = `<span class="t"></span><small>${p.status === "published" ? "Published" : "Draft"} · ${when}</small>`;
+      b.querySelector(".t").textContent = p.title || "Untitled";
+      b.addEventListener("click", () => openPost(p.id));
+      list.appendChild(b);
+    });
+  }
+
+  async function refreshList() {
+    state.posts = await api("/api/admin/posts");
+    renderList();
+  }
+
+  function showStudio(show) {
+    $("login").classList.toggle("hidden", show);
+    $("app").classList.toggle("hidden", !show);
+  }
+
+  function resetEditor() {
+    state.id = null; state.status = "draft"; state.dirty = false;
+    loadFields({});
+    renderStatus(); renderList(); notice("");
+    setSaveState("Not saved yet");
+    $("updated").textContent = "";
+    $("title").focus();
+  }
+
+  async function openPost(id) {
+    if (state.dirty && !confirm("You have unsaved changes. Leave without saving?")) return;
+    const p = await api(`/api/admin/posts/${id}`);
+    state.id = p.id; state.status = p.status; state.dirty = false;
+    loadFields(p);
+    renderStatus(); renderList();
+    setSaveState("Saved");
+    $("updated").textContent = `Last saved ${new Date(p.updated_at).toLocaleString()}`;
+  }
+
+  async function save({ silent = false } = {}) {
+    if (state.saving) return false;
+    const payload = fields();
+    if (!payload.title.trim()) { if (!silent) toast("Give the post a title first."); return false; }
+    state.saving = true;
+    setSaveState("Saving…");
+    try {
+      let p;
+      if (state.id) p = await api(`/api/admin/posts/${state.id}`, { method: "PUT", body: payload });
+      else p = await api("/api/admin/posts", { method: "POST", body: payload });
+      state.id = p.id; state.status = p.status; state.dirty = false;
+      renderStatus();
+      setSaveState("Saved just now");
+      $("updated").textContent = `Last saved ${new Date(p.updated_at).toLocaleString()}`;
+      if (!silent) toast(p.status === "published" ? "Changes saved and updated." : "Draft saved.");
+      await refreshList();
+      return true;
+    } catch (e) {
+      setSaveState("Not saved");
+      notice(e.message, "bad");
+      return false;
+    } finally {
+      state.saving = false;
+    }
+  }
+
+  async function publish() {
+    const payload = fields();
+    if (!payload.title.trim()) { toast("Give the post a title first."); return; }
+    if (!state.id) {
+      const ok = await save({ silent: true });
+      if (!ok) return;
+    }
+    $("publish").disabled = true;
+    try {
+      const p = await api(`/api/admin/posts/${state.id}/publish`, { method: "POST", body: fields() });
+      state.status = p.status; state.dirty = false;
+      renderStatus();
+      setSaveState("Published");
+      notice("");
+      toast("Published.");
+      await refreshList();
+    } catch (e) { notice(e.message, "bad"); }
+    finally { $("publish").disabled = false; }
+  }
+
+  async function unpublish() {
+    if (!state.id || !confirm("Take this post back to draft? It will disappear from the blog.")) return;
+    try {
+      const p = await api(`/api/admin/posts/${state.id}/unpublish`, { method: "POST" });
+      state.status = p.status; renderStatus(); await refreshList();
+      toast("Moved back to draft.");
+    } catch (e) { notice(e.message, "bad"); }
+  }
+
+  async function remove() {
+    if (!state.id || !confirm("Delete this post permanently?")) return;
+    try {
+      await api(`/api/admin/posts/${state.id}`, { method: "DELETE" });
+      toast("Post deleted.");
+      resetEditor();
+      await refreshList();
+    } catch (e) { notice(e.message, "bad"); }
+  }
+
+  async function uploadImage(file) {
+    const types = ["image/png", "image/jpeg", "image/webp", "image/gif"];
+    if (!types.includes(file.type)) { notice("Use a PNG, JPG, WebP or GIF image.", "bad"); return null; }
+    if (file.size > 5 * 1024 * 1024) { notice("Images must be 5 MB or smaller.", "bad"); return null; }
+    const fd = new FormData(); fd.append("file", file, file.name);
+    toast("Uploading image…");
+    try {
+      const res = await api("/api/admin/upload", { method: "POST", body: fd });
+      if (res.warning) notice(res.warning + " The image is saved on the blog server instead.", "warn");
+      return res;
+    } catch (e) { notice(e.message, "bad"); return null; }
+  }
+
+  async function setThumbnail(file) {
+    const res = await uploadImage(file);
+    if (!res) return;
+    state.thumb = { url: res.url };
+    renderThumb(); markDirty(); toast("Thumbnail added.");
+  }
+
+  function insertAtCursor(before, after = "", placeholder = "") {
+    const ta = $("body");
+    const start = ta.selectionStart, end = ta.selectionEnd;
+    const selected = ta.value.slice(start, end) || placeholder;
+    const text = before + selected + after;
+    ta.setRangeText(text, start, end, "end");
+    ta.focus();
+    const cursor = start + before.length + selected.length;
+    ta.setSelectionRange(start + before.length, cursor);
+    markDirty(); updateCounts(); renderPreview();
+  }
+
+  function linePrefix(prefix) {
+    const ta = $("body");
+    const start = ta.value.lastIndexOf("\n", ta.selectionStart - 1) + 1;
+    ta.setRangeText(prefix, start, start, "end");
+    ta.focus();
+    markDirty(); updateCounts(); renderPreview();
+  }
+
+  const commands = {
+    h2: () => linePrefix("## "),
+    h3: () => linePrefix("### "),
+    bold: () => insertAtCursor("**", "**", "bold text"),
+    italic: () => insertAtCursor("*", "*", "italic text"),
+    code: () => insertAtCursor("`", "`", "code"),
+    quote: () => linePrefix("> "),
+    ul: () => linePrefix("- "),
+    ol: () => linePrefix("1. "),
+    link: () => insertAtCursor("[", "](https://)", "link text"),
+    image: () => insertAtCursor("![", "](https://)", "alt text"),
+  };
+
+  // ---- wiring ----
+  $("login-form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    $("login-error").textContent = "";
+    try {
+      await api("/api/login", { method: "POST", body: { key: $("key").value } });
+      $("key").value = "";
+      await boot();
+    } catch (err) { $("login-error").textContent = err.message; }
+  });
+
+  $("logout").addEventListener("click", async () => {
+    if (state.dirty && !confirm("Log out with unsaved changes?")) return;
+    await api("/api/logout", { method: "POST" });
+    showStudio(false);
+  });
+
+  $("new-post").addEventListener("click", () => {
+    if (state.dirty && !confirm("You have unsaved changes. Start a new post anyway?")) return;
+    resetEditor();
+  });
+  $("save").addEventListener("click", () => save());
+  $("publish").addEventListener("click", publish);
+  $("unpublish").addEventListener("click", unpublish);
+  $("delete").addEventListener("click", remove);
+  $("search").addEventListener("input", renderList);
+
+  ["title", "description", "body"].forEach((id) => {
+    $(id).addEventListener("input", () => { markDirty(); updateCounts(); renderPreview(); });
+  });
+
+  $("toolbar").addEventListener("click", (e) => {
+    const btn = e.target.closest("button[data-cmd]");
+    if (btn) commands[btn.dataset.cmd]();
+  });
+
+  $("toggle-preview").addEventListener("click", (e) => {
+    const split = $("split");
+    const hidden = $("preview").classList.toggle("hidden");
+    split.classList.toggle("single", hidden);
+    e.target.textContent = hidden ? "Show preview" : "Hide preview";
+  });
+
+  $("dropzone").addEventListener("click", () => $("file").click());
+  $("dropzone").addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); $("file").click(); } });
+  $("file").addEventListener("change", (e) => { if (e.target.files[0]) setThumbnail(e.target.files[0]); e.target.value = ""; });
+  $("thumb-remove").addEventListener("click", () => { state.thumb = { url: "" }; renderThumb(); markDirty(); });
+
+  const dz = $("dropzone");
+  ["dragenter", "dragover"].forEach((ev) => dz.addEventListener(ev, (e) => { e.preventDefault(); dz.classList.add("over"); }));
+  ["dragleave", "drop"].forEach((ev) => dz.addEventListener(ev, (e) => { e.preventDefault(); dz.classList.remove("over"); }));
+  dz.addEventListener("drop", (e) => { const f = e.dataTransfer.files[0]; if (f) setThumbnail(f); });
+
+  $("body").addEventListener("paste", (e) => {
+    const item = [...(e.clipboardData?.items || [])].find((i) => i.type.startsWith("image/"));
+    if (!item) return;
+    e.preventDefault();
+    uploadImage(item.getAsFile()).then((res) => { if (res) insertAtCursor(`![image](${res.url})\n`, "", ""); });
+  });
+  $("body").addEventListener("drop", (e) => {
+    const f = e.dataTransfer.files[0];
+    if (!f || !f.type.startsWith("image/")) return;
+    e.preventDefault();
+    uploadImage(f).then((res) => { if (res) insertAtCursor(`\n![image](${res.url})\n`, "", ""); });
+  });
+  $("body").addEventListener("dragover", (e) => e.preventDefault());
+
+  document.addEventListener("keydown", (e) => {
+    if (!(e.ctrlKey || e.metaKey) || $("app").classList.contains("hidden")) return;
+    const k = e.key.toLowerCase();
+    if (k === "s") { e.preventDefault(); save(); }
+    else if (k === "b" && document.activeElement === $("body")) { e.preventDefault(); commands.bold(); }
+    else if (k === "i" && document.activeElement === $("body")) { e.preventDefault(); commands.italic(); }
+    else if (k === "k" && document.activeElement === $("body")) { e.preventDefault(); commands.link(); }
+  });
+
+  window.addEventListener("beforeunload", (e) => { if (state.dirty) { e.preventDefault(); e.returnValue = ""; } });
+
+  async function boot() {
+    const s = await api("/api/session");
+    if (!s.ok) { showStudio(false); return; }
+    showStudio(true);
+    await refreshList();
+    if (state.posts.length) await openPost(state.posts[0].id); else resetEditor();
+  }
+
+  boot().catch(() => { showStudio(false); $("login-error").textContent = "Can't reach the blog server. Try again shortly."; });
+})();
+</script>
+</body>
+</html>
